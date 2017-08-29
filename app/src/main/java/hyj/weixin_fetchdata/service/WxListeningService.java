@@ -18,6 +18,10 @@ public class WxListeningService extends AccessibilityService {
 
     /**
      * 监听方法入口
+     * 执行思路：
+     * 1、收到消息，监听到红色点、点击
+     * 2、进入订阅号获取消息标题列表、点击
+     * 3、点击标题进入正文 获取到文章连接，退出继续监听（拿到链接在后台http请求爬取正文内容）
      */
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
@@ -26,7 +30,16 @@ public class WxListeningService extends AccessibilityService {
             Log.d(TAG,"rootNode is null");
             return;
         }
-        //获取订阅号好文章标题节点
+
+        //1、收到消息，监听红点提示、点击    用DDMS查看红色数据点ID为 com.tencent.mm:id/ajb
+        List<AccessibilityNodeInfo> receiveNodes = root.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/ajb");
+        if(receiveNodes!=null&&receiveNodes.size()>0){
+            //点击红点订阅号
+            performClick(receiveNodes.get(0));
+            return;
+        }
+
+        //2、进入订阅号获取消息标题
         List<AccessibilityNodeInfo> dyhMsgNodes = root.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/fs");
         if(dyhMsgNodes!=null&&dyhMsgNodes.size()>0){
             String title="";
@@ -34,37 +47,23 @@ public class WxListeningService extends AccessibilityService {
                 title+=msg.getText()+"\n";
             }
             System.out.println("订阅号标题内容\n"+title);
-            Toast.makeText(GlobalApplication.getContext(), "订阅号标题内容-->"+title, Toast.LENGTH_SHORT).show();
-            //点击订阅号标题
-            //performClick(dyhMsgNodes.get(0));
+            Toast.makeText(GlobalApplication.getContext(), "订阅号标题内容\n"+title, Toast.LENGTH_SHORT).show();
+            //点击订阅号第一条内容标题
+            performClick(dyhMsgNodes.get(0));
             return;
         }
-
-        //收到消息，获取红点数字节点，用DDMS查看红色数据点ID为 com.tencent.mm:id/ie
-        List<AccessibilityNodeInfo> receiveNodes = root.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/ie");
-        if(receiveNodes!=null&&receiveNodes.size()>0){
-            //点击红点进入--订阅号同理
-            performClick(receiveNodes.get(0));
-            return;
-        }
-
-        List<AccessibilityNodeInfo> msgNodes = root.findAccessibilityNodeInfosByViewId("com.tencent.mm:id/io");
-        if(msgNodes!=null&&msgNodes.size()>0){
-            for(AccessibilityNodeInfo msg:msgNodes){
-                System.out.println("输出聊天记录-->"+msg.getContentDescription());
-            }
-            return;
-        }
+        //3、点击标题进入正文 获取到文章连接，退出继续监听（拿到链接在后台http请求爬取正文内容）
 
 
     }
-    public static void performClick(AccessibilityNodeInfo nodeInfo) {
-        if(nodeInfo == null)  return;
+    public  boolean performClick(AccessibilityNodeInfo nodeInfo) {
+        if(nodeInfo == null)  return false;
         if(nodeInfo.isClickable()) {
-            nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            return nodeInfo.performAction(AccessibilityNodeInfo.ACTION_CLICK);
         } else {
             performClick(nodeInfo.getParent());
         }
+        return false;
     }
     public static void startAppByPackName(String packageName,String activity){
         Intent intent = new Intent();
